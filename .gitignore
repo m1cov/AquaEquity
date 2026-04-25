@@ -1,0 +1,20 @@
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.env
+frontend/*.log
+
+# Backend
+backend/.env
+backend/__pycache__
+backend/**/__pycache__
+backend/.venv
+backend/venv
+backend/aquafield_dev.db
+backend/*.log
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.iml
