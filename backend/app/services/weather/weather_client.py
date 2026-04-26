@@ -128,3 +128,63 @@ def fetch_weather(field_geometry: dict[str, Any], date: str) -> dict:
         return _parse_open_meteo_weather(payload)
     except (HTTPError, URLError, TimeoutError, ValueError, OSError, json.JSONDecodeError):
         return _fallback_weather()
+
+
+def fetch_weather_range(
+    field_geometry: dict[str, Any],
+    start_date: str,
+    end_date: str,
+) -> list[dict]:
+    """
+    Fetch daily weather for a date range in a single Open-Meteo request.
+    Returns a list ordered oldest-to-newest, one dict per day including a 'date' key.
+    Falls back to conservative defaults per day when the API call fails.
+    """
+    from datetime import date as _Date, timedelta
+
+    def _fallback_range() -> list[dict]:
+        s = _Date.fromisoformat(start_date[:10])
+        e = _Date.fromisoformat(end_date[:10])
+        n = max((e - s).days + 1, 1)
+        return [
+            {"date": (s + timedelta(days=i)).isoformat(), **_fallback_weather()}
+            for i in range(n)
+        ]
+
+    try:
+        latitude, longitude = _polygon_centroid(field_geometry)
+        query = urlencode({
+            "latitude": latitude,
+            "longitude": longitude,
+            "daily": "precipitation_sum,et0_fao_evapotranspiration",
+            "start_date": start_date[:10],
+            "end_date": end_date[:10],
+            "timezone": "auto",
+        })
+        request = Request(
+            f"{OPEN_METEO_FORECAST_URL}?{query}",
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        with urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        daily = payload.get("daily") or {}
+        dates = daily.get("time") or []
+        rain_list = daily.get("precipitation_sum") or []
+        et0_list = daily.get("et0_fao_evapotranspiration") or []
+
+        result = []
+        for i, day_str in enumerate(dates):
+            rain_mm = float(rain_list[i]) if i < len(rain_list) and rain_list[i] is not None else 0.0
+            et0_mm = float(et0_list[i]) if i < len(et0_list) and et0_list[i] is not None else 5.0
+            result.append({
+                "date": day_str,
+                "rain_mm": rain_mm,
+                "et0_mm": et0_mm,
+                **_weather_uncertainty(rain_mm, et0_mm),
+                "weather_source": "open-meteo",
+            })
+        return result if result else _fallback_range()
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError, json.JSONDecodeError):
+        return _fallback_range()

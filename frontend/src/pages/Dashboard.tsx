@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { useFarms } from "@/hooks/useFarmData";
 import { FarmCard } from "@/components/FarmCard";
+import { AddFarmDialog } from "@/components/AddFarmDialog";
+import { AttentionToday } from "@/components/AttentionToday";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -13,9 +16,15 @@ import type { EnrichedFarm } from "@/hooks/useFarmData";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export default function Dashboard() {
-  const { data: farms = [], isLoading, isFetching } = useFarms();
+  const { data: allFarms = [], isLoading, isFetching } = useFarms();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [details, setDetails] = useState<EnrichedFarm | null>(null);
+
+  const farms = useMemo(
+    () => allFarms.filter((f) => f.owner_name === user?.username),
+    [allFarms, user?.username],
+  );
 
   const summary = useMemo(() => {
     const totalHa = farms.reduce((s, f) => s + Number(f.size_ha), 0);
@@ -24,7 +33,7 @@ export default function Dashboard() {
     return { totalHa, totalQuota, totalRec, used: Math.min(100, (totalRec / Math.max(1, totalQuota)) * 100) };
   }, [farms]);
 
-  const farmer = farms[0]?.owner_name ?? "Petar Stojanov";
+  const farmer = user?.username ?? farms[0]?.owner_name ?? "Farmer";
 
   return (
     <div className="container py-8 space-y-6">
@@ -39,13 +48,13 @@ export default function Dashboard() {
               <div className="text-xs uppercase tracking-wide text-muted-foreground">Farmer</div>
               <div className="text-xl font-semibold tracking-tight">{farmer}</div>
               <div className="text-sm text-muted-foreground mt-0.5">
-                {farms.length} farms · {summary.totalHa.toFixed(1)} ha
+                {farms.length} fields · {summary.totalHa.toFixed(1)} ha
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-6 md:max-w-xl flex-1">
-            <Mini icon={<Sprout className="h-4 w-4" />} label="Farms" value={String(farms.length)} />
+            <Mini icon={<Sprout className="h-4 w-4" />} label="Fields" value={String(farms.length)} />
             <Mini icon={<Leaf className="h-4 w-4" />} label="Avg NDVI" value={
               farms.length
                 ? (farms.map(f => f.ndvi ?? 0).reduce((a, b) => a + b, 0) / farms.length).toFixed(2)
@@ -71,14 +80,21 @@ export default function Dashboard() {
           </div>
           <Progress value={summary.used} className="h-2.5" />
         </div>
+
+        <div className="mt-5 flex justify-end">
+          <AddFarmDialog defaultOwner={farmer} />
+        </div>
       </Card>
+
+      {/* Attention today */}
+      {!isLoading && farms.length > 0 && <AttentionToday farms={farms} />}
 
       {/* Farm grid */}
       <div>
         <div className="flex items-end justify-between mb-3">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">Your farms</h2>
-            <p className="text-sm text-muted-foreground">Per-farm crop health, soil moisture and irrigation plan.</p>
+            <h2 className="text-lg font-semibold tracking-tight">Your fields</h2>
+            <p className="text-sm text-muted-foreground">Per-field crop health, soil moisture and irrigation plan.</p>
           </div>
         </div>
         {isLoading ? (
@@ -103,6 +119,8 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <Stat label="Region" value={details.region} />
                   <Stat label="Size" value={`${details.size_ha} ha`} />
+                  <Stat label="Crop type" value={details.crop_name ?? "—"} />
+                  <Stat label="Soil type" value={details.soil_type ?? "—"} />
                   <Stat label="NDVI" value={details.ndvi?.toFixed(2) ?? "—"} />
                   <Stat label="Soil moisture" value={details.soilMoisture != null ? `${details.soilMoisture.toFixed(0)}%` : "—"} />
                   <Stat label="Recommended water" value={formatLiters(details.recommendedLiters)} />

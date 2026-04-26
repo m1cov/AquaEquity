@@ -1,17 +1,29 @@
-"""
-Seed initial demo farms.
-
-Idempotent: if any farms already exist, this is a no-op. Once the user's
-real schema is in place, they can either remove this file or replace the
-seed data with their own.
-"""
 from __future__ import annotations
+
+import math
 
 from app.db import SessionLocal
 from app.db_models import Farm
 
-# Skopje-area demo farms. Coordinates are reasonable for North Macedonia.
-SEED_FARMS = [
+
+def _corners(lat: float, lon: float, size_ha: float) -> dict:
+    """Compute axis-aligned bounding box corners from center + area."""
+    side_m = math.sqrt(size_ha * 10000) / 2
+    d_lat = side_m / 111320
+    d_lon = side_m / (111320 * math.cos(math.radians(lat)))
+    return {
+        "top_left_x": round(lat + d_lat, 6),
+        "top_left_y": round(lon - d_lon, 6),
+        "top_right_x": round(lat + d_lat, 6),
+        "top_right_y": round(lon + d_lon, 6),
+        "bottom_left_x": round(lat - d_lat, 6),
+        "bottom_left_y": round(lon - d_lon, 6),
+        "bottom_right_x": round(lat - d_lat, 6),
+        "bottom_right_y": round(lon + d_lon, 6),
+    }
+
+
+_BASE_FARMS = [
     {
         "name": "Stojanov South",
         "region": "Skopje",
@@ -69,12 +81,24 @@ SEED_FARMS = [
     },
 ]
 
+SEED_FARMS = [
+    {**f, **_corners(f["latitude"], f["longitude"], f["size_ha"])}
+    for f in _BASE_FARMS
+]
+
 
 def seed_initial_farms() -> None:
     db = SessionLocal()
     try:
         existing = db.query(Farm).count()
         if existing > 0:
+            # Patch existing farms that are missing corner data
+            for farm in db.query(Farm).all():
+                if farm.top_left_x is None:
+                    corners = _corners(farm.latitude, farm.longitude, float(farm.size_ha))
+                    for k, v in corners.items():
+                        setattr(farm, k, v)
+            db.commit()
             return
         for f in SEED_FARMS:
             db.add(Farm(**f))

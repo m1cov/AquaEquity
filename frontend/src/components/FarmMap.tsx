@@ -65,7 +65,19 @@ export function FarmMap({ farms, onSelect, height = "520px" }: Props) {
 
     farms.forEach((farm) => {
       const color = stressColor(farm.stress);
-      const positions = farmPolygon(farm.latitude, farm.longitude, farm.size_ha) as L.LatLngExpression[];
+      const hasCorners =
+        farm.top_left_x != null && farm.top_left_y != null &&
+        farm.top_right_x != null && farm.top_right_y != null &&
+        farm.bottom_right_x != null && farm.bottom_right_y != null &&
+        farm.bottom_left_x != null && farm.bottom_left_y != null;
+      const positions: L.LatLngExpression[] = hasCorners
+        ? [
+            [farm.top_left_x!, farm.top_left_y!],
+            [farm.top_right_x!, farm.top_right_y!],
+            [farm.bottom_right_x!, farm.bottom_right_y!],
+            [farm.bottom_left_x!, farm.bottom_left_y!],
+          ]
+        : farmPolygon(farm.latitude, farm.longitude, farm.size_ha) as L.LatLngExpression[];
 
       const polygon = L.polygon(positions, {
         color,

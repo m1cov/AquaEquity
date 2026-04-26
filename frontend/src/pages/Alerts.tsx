@@ -57,7 +57,7 @@ export default function Alerts() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Alerts</h1>
-          <p className="text-sm text-muted-foreground">Recent SMS and dashboard alerts for your farms.</p>
+          <p className="text-sm text-muted-foreground">Recent SMS and dashboard alerts for your fields.</p>
         </div>
         <Button onClick={sendTestAlert} disabled={sending}>
           <Send className="h-4 w-4" /> Send test alert
@@ -80,11 +80,11 @@ export default function Alerts() {
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Farm</span>
+            <span className="text-xs text-muted-foreground">Field</span>
             <Select value={farmFilter} onValueChange={setFarmFilter}>
               <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All farms</SelectItem>
+                <SelectItem value="all">All fields</SelectItem>
                 {farms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -115,7 +115,7 @@ export default function Alerts() {
             <TableHeader>
               <TableRow>
                 <TableHead>Time</TableHead>
-                <TableHead>Farm</TableHead>
+                <TableHead>Field</TableHead>
                 <TableHead>Message</TableHead>
                 <TableHead>Severity</TableHead>
                 <TableHead>Channel</TableHead>

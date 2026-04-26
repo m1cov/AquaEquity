@@ -54,18 +54,44 @@ export function formatLiters(n: number): string {
   return `${Math.round(n)} L`;
 }
 
-/** Compute a simple polygon (square) around a center point given size in ha. */
+/**
+ * Compute area in hectares from 4 geographic corner points.
+ * X = latitude, Y = longitude (Java API convention).
+ * Uses the Shoelace formula with local meter projection.
+ */
+export function haFromCorners(
+  tLX: number, tLY: number,
+  tRX: number, tRY: number,
+  bRX: number, bRY: number,
+  bLX: number, bLY: number,
+): number {
+  const centerLat = (tLX + tRX + bRX + bLX) / 4;
+  const mPerLat = 111_320;
+  const mPerLon = 111_320 * Math.cos((centerLat * Math.PI) / 180);
+  const pts = [
+    [tLY * mPerLon, tLX * mPerLat],
+    [tRY * mPerLon, tRX * mPerLat],
+    [bRY * mPerLon, bRX * mPerLat],
+    [bLY * mPerLon, bLX * mPerLat],
+  ];
+  let area = 0;
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    area += pts[i][0] * pts[j][1];
+    area -= pts[j][0] * pts[i][1];
+  }
+  return Math.abs(area) / 2 / 10_000;
+}
+
+/** Fallback square polygon when corner data is absent. */
 export function farmPolygon(lat: number, lng: number, sizeHa: number): [number, number][] {
-  const areaM2 = sizeHa * 10000;
-  const sideM = Math.sqrt(areaM2);
-  const dLat = (sideM / 2) / 111_320;
-  const dLng = (sideM / 2) / (111_320 * Math.cos((lat * Math.PI) / 180));
-  // Slight parallelogram for visual variety
-  const skew = dLng * 0.15;
+  const sideM = Math.sqrt(sizeHa * 10_000) / 2;
+  const dLat = sideM / 111_320;
+  const dLng = sideM / (111_320 * Math.cos((lat * Math.PI) / 180));
   return [
-    [lat + dLat, lng - dLng + skew],
-    [lat + dLat, lng + dLng + skew],
-    [lat - dLat, lng + dLng - skew],
-    [lat - dLat, lng - dLng - skew],
+    [lat + dLat, lng - dLng],
+    [lat + dLat, lng + dLng],
+    [lat - dLat, lng + dLng],
+    [lat - dLat, lng - dLng],
   ];
 }

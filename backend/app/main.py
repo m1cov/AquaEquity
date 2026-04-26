@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import init_db
-from app.routes import alerts, analytics, estimates, farms, irrigation, sentinel, weather
+from app.routes import alerts, auth, analytics, estimates, farms, irrigation, sentinel, weather
 from app.utils.seed import seed_initial_farms
 
 load_dotenv()
@@ -65,3 +65,4 @@ app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 app.include_router(sentinel.router, prefix="/sentinel", tags=["Sentinel"])
 app.include_router(estimates.router, prefix="/estimates", tags=["EKF Estimates"])
 app.include_router(weather.router, prefix="/weather", tags=["Weather"])
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])

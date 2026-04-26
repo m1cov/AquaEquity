@@ -1,6 +1,8 @@
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { Droplets, LayoutDashboard, Map as MapIcon, BellRing, Activity } from "lucide-react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Droplets, LayoutDashboard, Map as MapIcon, BellRing, Activity, LogOut, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const tabs = [
   { to: "/", label: "Overview", icon: MapIcon },
@@ -11,6 +13,9 @@ const tabs = [
 
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -47,9 +52,26 @@ export default function AppLayout() {
             })}
           </nav>
 
-          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-healthy animate-pulse" />
-            Live · 5 min refresh
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-healthy animate-pulse" />
+              Live · 5 min
+            </div>
+            {user ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { signOut(); navigate("/"); }}
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sign out</span>
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => navigate("/auth")}>
+                <LogIn className="h-4 w-4" />
+                <span className="hidden sm:inline">Sign in</span>
+              </Button>
+            )}
           </div>
         </div>
       </header>

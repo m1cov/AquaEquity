@@ -66,7 +66,7 @@ No request body required.
 **Request Body:**
 ```json
 {
-  "fristName": "John",
+  "firstName": "John",
   "lastName": "Doe",
   "email": "user@example.com",
   "username": "johndoe",
@@ -85,7 +85,7 @@ All fields are optional — only include the fields you want to update.
 **Request Body:**
 ```json
 {
-  "fristName": "Jane",
+  "firstName": "Jane",
   "lastName": "Doe",
   "email": "newemail@example.com",
   "username": "janedoe",

@@ -1,10 +1,3 @@
-/**
- * AquaField API client.
- *
- * Replaces the previous Supabase integration. All requests go through a
- * thin typed `fetch` wrapper that adds a base URL, sets JSON headers, and
- * surfaces a useful error message for non-2xx responses.
- */
 import type { AlertRow, Farm, FarmReading } from "@/hooks/useFarmData";
 
 const API_BASE_URL =
@@ -54,6 +47,26 @@ export const api = {
       { method: "POST" },
     ),
 
+  createFarm: (data: {
+    name: string;
+    region: string;
+    owner_name: string;
+    size_ha: number;
+    latitude: number;
+    longitude: number;
+    water_quota_liters: number;
+    crop_name: string;
+    soil_type: string;
+    top_left_x?: number;
+    top_left_y?: number;
+    top_right_x?: number;
+    top_right_y?: number;
+    bottom_left_x?: number;
+    bottom_left_y?: number;
+    bottom_right_x?: number;
+    bottom_right_y?: number;
+  }) => request<Farm>("/farms/", { method: "POST", body: JSON.stringify(data) }),
+
   // ---------- Alerts ----------
   listAlerts: () => request<AlertRow[]>("/alerts/?limit=100"),
   sendAlert: (payload: {
@@ -76,11 +89,31 @@ export const api = {
     const params = new URLSearchParams({ days: String(days), soil_type: soilType });
     return request<EkfDemoResponse>(`/estimates/demo?${params.toString()}`);
   },
+  getLiveFarmEstimate: (farmId: string, days = 10) =>
+    request<LiveFarmScenario>(`/estimates/farm/${farmId}/live?days=${days}`),
   listSoilTypes: () => request<{ soil_types: string[] }>("/estimates/soil-types/list"),
   listCrops: () => request<{ default_crop_keys: string[]; crops: EkfCrop[] }>("/estimates/crops/list"),
 };
 
 export { ApiError, API_BASE_URL };
+
+// ---------- Auth (proxied through local FastAPI to avoid CORS) ----------
+export const authApi = {
+  login: (email: string, password: string) =>
+    request<{ id: number; email: string; username: string; message: string }>(
+      "/auth/login",
+      { method: "POST", body: JSON.stringify({ email, password }) },
+    ),
+
+  register: (data: {
+    fristName: string;
+    lastName: string;
+    email: string;
+    username: string;
+    password: string;
+    phoneNumber: string;
+  }) => request<unknown>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+};
 
 // ---------- Types for EKF demo ----------
 export interface EkfDayRow {
@@ -105,6 +138,10 @@ export interface EkfDayRow {
   stress_level: "low" | "moderate" | "high" | "critical";
   kalman_gain: number | null;
   innovation: number | null;
+  /** ISO date string — present only in live mode */
+  date?: string;
+  /** "open-meteo" | "fallback" — present only in live mode */
+  weather_source?: string;
 }
 
 export interface EkfScenario {
@@ -143,6 +180,11 @@ export interface EkfDemoResponse {
   available_soil_types: string[];
   measurement_days: number[];
   scenarios: EkfScenario[];
+}
+
+export interface LiveFarmScenario extends EkfScenario {
+  farm_id: string;
+  farm_name: string;
 }
 
 export interface EkfCrop {

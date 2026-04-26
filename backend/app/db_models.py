@@ -41,6 +41,14 @@ class Farm(Base):
     )
     crop_name: Mapped[str] = mapped_column(String(40), nullable=False, default="tomato")
     soil_type: Mapped[str] = mapped_column(String(40), nullable=False, default="loam")
+    top_left_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    top_left_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    top_right_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    top_right_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bottom_left_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bottom_left_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bottom_right_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bottom_right_y: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

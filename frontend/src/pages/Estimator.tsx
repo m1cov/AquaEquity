@@ -20,10 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Activity, Droplets, Satellite, Leaf } from "lucide-react";
+import { Activity, Droplets, Satellite, Leaf, CloudRain } from "lucide-react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -32,7 +30,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
 import { api, type EkfDayRow, type EkfScenario } from "@/lib/api";
+import { useFarms } from "@/hooks/useFarmData";
 
 type StressKey = "low" | "moderate" | "high" | "critical";
 
@@ -65,6 +65,13 @@ function fmt(value: number | null | undefined, digits = 2): string {
   return value.toFixed(digits);
 }
 
+function shortDate(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function StressPill({ level }: { level: string | null | undefined }) {
   const key = (level ?? "low").toLowerCase() as StressKey;
   const meta = stressMeta[key] ?? stressMeta.low;
@@ -75,19 +82,31 @@ function StressPill({ level }: { level: string | null | undefined }) {
   );
 }
 
-function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
+function ScenarioCard({
+  scenario,
+  farmName,
+}: {
+  scenario: EkfScenario;
+  farmName?: string;
+}) {
   const final = scenario.final;
   const cropParams = scenario.crop_parameters;
+  const isLive = !!farmName;
 
   const totalIrrigation = useMemo(
     () => scenario.history.reduce((sum, row) => sum + row.irrigation_mm, 0),
     [scenario.history],
   );
 
+  const satelliteDays = useMemo(
+    () => scenario.history.filter((r) => r.updated).length,
+    [scenario.history],
+  );
+
   const chartData = useMemo(
     () =>
       scenario.history.map((row) => ({
-        day: row.day,
+        label: row.date ? shortDate(row.date) : String(row.day),
         estimate: row.soil_water_estimate_mm,
         prediction: row.x_pred_mm,
         measurement: row.measurement_mm,
@@ -103,11 +122,18 @@ function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            {scenario.soil_type.replace("_", " ")} · {scenario.days} days
+            {isLive
+              ? `${scenario.soil_type.replace("_", " ")} · last ${scenario.days} days`
+              : `${scenario.soil_type.replace("_", " ")} · ${scenario.days} days`}
           </div>
           <h3 className="mt-0.5 text-lg font-semibold tracking-tight">
-            {scenario.display_name}
+            {farmName ?? scenario.display_name}
           </h3>
+          {farmName && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {scenario.display_name}
+            </div>
+          )}
         </div>
         <StressPill level={final?.stress_level} />
       </div>
@@ -120,6 +146,12 @@ function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
         <Chip>p {fmt(cropParams.depletion_fraction_p, 2)}</Chip>
         <Chip>Roots {fmt(cropParams.root_depth_m, 1)} m</Chip>
         <Chip>NDVI {fmt(cropParams.default_ndvi, 2)}</Chip>
+        {isLive && (
+          <Chip>
+            <Satellite className="h-3 w-3 mr-1 inline" />
+            {satelliteDays}/{scenario.days} satellite days
+          </Chip>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -142,14 +174,12 @@ function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
         <div className="h-44">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
-              <defs>
-                <linearGradient id={`ekf-${scenario.crop}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
-              <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10 }}
+                interval="preserveStartEnd"
+              />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip
                 contentStyle={{
@@ -203,8 +233,9 @@ function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs">Day</TableHead>
+              <TableHead className="text-xs">{isLive ? "Date" : "Day"}</TableHead>
               <TableHead className="text-xs">ET₀</TableHead>
+              <TableHead className="text-xs">Rain</TableHead>
               <TableHead className="text-xs">Irrig.</TableHead>
               <TableHead className="text-xs">Pred.</TableHead>
               <TableHead className="text-xs">Sat. z</TableHead>
@@ -218,8 +249,11 @@ function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
                 key={`${scenario.crop}-${row.day}`}
                 className={row.updated ? "bg-accent/30" : undefined}
               >
-                <TableCell className="text-xs tabular-nums">{row.day}</TableCell>
+                <TableCell className="text-xs tabular-nums">
+                  {row.date ? shortDate(row.date) : row.day}
+                </TableCell>
                 <TableCell className="text-xs tabular-nums">{fmt(row.et0_mm)}</TableCell>
+                <TableCell className="text-xs tabular-nums">{fmt(row.rain_mm)}</TableCell>
                 <TableCell className="text-xs tabular-nums">{fmt(row.irrigation_mm)}</TableCell>
                 <TableCell className="text-xs tabular-nums">{fmt(row.x_pred_mm)}</TableCell>
                 <TableCell className="text-xs tabular-nums">{fmt(row.measurement_mm)}</TableCell>
@@ -239,11 +273,30 @@ function ScenarioCard({ scenario }: { scenario: EkfScenario }) {
 export default function Estimator() {
   const [days, setDays] = useState(10);
   const [soilType, setSoilType] = useState("loam");
+  const [farmId, setFarmId] = useState("demo");
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data: farms = [] } = useFarms();
+  const isLiveMode = farmId !== "demo";
+  const selectedFarm = farms.find((f) => f.id === farmId);
+
+  const liveQuery = useQuery({
+    queryKey: ["ekf-live", farmId, days],
+    queryFn: () => api.getLiveFarmEstimate(farmId, days),
+    enabled: isLiveMode && farmId !== "demo",
+  });
+
+  const demoQuery = useQuery({
     queryKey: ["ekf-demo", days, soilType],
     queryFn: () => api.getEkfDemo({ days, soilType }),
+    enabled: !isLiveMode,
   });
+
+  const isLoading = isLiveMode ? liveQuery.isLoading : demoQuery.isLoading;
+  const isError = isLiveMode ? liveQuery.isError : demoQuery.isError;
+  const error = isLiveMode ? liveQuery.error : demoQuery.error;
+  const scenarios: EkfScenario[] = isLiveMode
+    ? (liveQuery.data ? [liveQuery.data] : [])
+    : (demoQuery.data?.scenarios ?? []);
 
   return (
     <>
@@ -259,13 +312,17 @@ export default function Estimator() {
               Crop water balance estimator
             </h1>
             <p className="mt-3 text-primary-foreground/85 text-base md:text-lg">
-              Daily EKF prediction uses Skopje-like weather, FAO crop coefficients
-              and ET₀. Sentinel-2 measurements correct the state when available.
+              {isLiveMode
+                ? "Real Open-Meteo weather and Sentinel-2 satellite data run through the EKF for your selected field."
+                : "Simulated Skopje-like weather with FAO crop coefficients — select a field above for real data."}
             </p>
           </div>
           <div className="mt-6 flex gap-6 text-primary-foreground/80">
             <div className="inline-flex items-center gap-2 text-sm">
               <Droplets className="h-4 w-4" /> Soil water
+            </div>
+            <div className="inline-flex items-center gap-2 text-sm">
+              <CloudRain className="h-4 w-4" /> Open-Meteo
             </div>
             <div className="inline-flex items-center gap-2 text-sm">
               <Satellite className="h-4 w-4" /> Sentinel-2
@@ -284,9 +341,29 @@ export default function Estimator() {
       <section className="container -mt-8 md:-mt-10 relative z-10">
         <Card className="p-5 bg-gradient-card shadow-elev-sm">
           <div className="flex flex-wrap items-end gap-4">
+            {/* Farm picker */}
+            {farms.length > 0 && (
+              <div className="flex-1 min-w-[180px] max-w-[260px]">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Field (live data)
+                </Label>
+                <Select value={farmId} onValueChange={setFarmId}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Demo mode" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="demo">Demo mode (simulated)</SelectItem>
+                    {farms.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name} · {f.crop_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="flex-1 min-w-[140px] max-w-[180px]">
               <Label htmlFor="days" className="text-xs uppercase tracking-wide text-muted-foreground">
-                Simulation days
+                {isLiveMode ? "History days" : "Simulation days"}
               </Label>
               <Input
                 id="days"
@@ -298,44 +375,62 @@ export default function Estimator() {
                 className="mt-1"
               />
             </div>
-            <div className="flex-1 min-w-[160px] max-w-[220px]">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Soil type
-              </Label>
-              <Select value={soilType} onValueChange={setSoilType}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SOIL_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="ml-auto text-xs text-muted-foreground max-w-md">
-              {data?.weather_assumption ?? "Loading scenario assumptions…"}
+            {/* Soil type only relevant in demo mode */}
+            {!isLiveMode && (
+              <div className="flex-1 min-w-[160px] max-w-[220px]">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Soil type
+                </Label>
+                <Select value={soilType} onValueChange={setSoilType}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SOIL_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="ml-auto text-xs text-muted-foreground max-w-xs text-right">
+              {isLiveMode
+                ? `${selectedFarm?.name ?? "Field"} · Open-Meteo weather · Sentinel-2 when available`
+                : (demoQuery.data?.weather_assumption ?? "Loading scenario assumptions…")}
             </div>
           </div>
         </Card>
       </section>
 
-      {/* Method note */}
+      {/* Info banner */}
       <section className="container py-6">
-        {data && (
+        {!isLiveMode && demoQuery.data && (
           <Card className="p-4 border-dashed bg-accent/40 text-sm">
-            <div className="font-medium text-accent-foreground">{data.title}</div>
-            <p className="text-muted-foreground mt-1">{data.method_note}</p>
-            <p className="text-muted-foreground mt-1">{data.unit_note}</p>
-            {data.measurement_days?.length > 0 && (
+            <div className="font-medium text-accent-foreground">{demoQuery.data.title}</div>
+            <p className="text-muted-foreground mt-1">{demoQuery.data.method_note}</p>
+            <p className="text-muted-foreground mt-1">{demoQuery.data.unit_note}</p>
+            {demoQuery.data.measurement_days?.length > 0 && (
               <p className="text-muted-foreground mt-1">
-                Satellite correction days: {data.measurement_days.join(", ")}
+                Satellite correction days: {demoQuery.data.measurement_days.join(", ")}
               </p>
             )}
           </Card>
         )}
+        {isLiveMode && liveQuery.data && (
+          <Card className="p-4 border-dashed bg-accent/40 text-sm">
+            <div className="font-medium text-accent-foreground">
+              Live EKF run for {liveQuery.data.farm_name}
+            </div>
+            <p className="text-muted-foreground mt-1">
+              Weather from Open-Meteo (real daily precipitation and ET₀). Sentinel-2 NDMI
+              corrects the soil-water state on days when a cloud-free image is available.
+              All water depths are mm over the field surface / root zone.
+            </p>
+          </Card>
+        )}
         {isError && (
           <Card className="p-4 border-[hsl(var(--destructive))] text-sm text-[hsl(var(--destructive))]">
-            Could not load EKF demo: {(error as Error)?.message ?? "Unknown error"}
+            Could not load estimate: {(error as Error)?.message ?? "Unknown error"}
           </Card>
         )}
       </section>
@@ -343,15 +438,19 @@ export default function Estimator() {
       {/* Scenarios */}
       <section className="container pb-10">
         {isLoading ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
+          <div className={`grid gap-5 ${isLiveMode ? "" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+            {Array.from({ length: isLiveMode ? 1 : 3 }).map((_, i) => (
               <Skeleton key={i} className="h-[640px] rounded-xl" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {data?.scenarios.map((s) => (
-              <ScenarioCard key={`${s.crop}-${s.soil_type}`} scenario={s} />
+          <div className={`grid gap-5 ${isLiveMode ? "max-w-2xl mx-auto" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+            {scenarios.map((s) => (
+              <ScenarioCard
+                key={`${s.crop}-${s.soil_type}`}
+                scenario={s}
+                farmName={isLiveMode ? (liveQuery.data?.farm_name) : undefined}
+              />
             ))}
           </div>
         )}

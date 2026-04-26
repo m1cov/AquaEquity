@@ -24,6 +24,14 @@ class FarmBase(BaseModel):
     water_quota_liters: float = 100000
     crop_name: str = "tomato"
     soil_type: str = "loam"
+    top_left_x: Optional[float] = None
+    top_left_y: Optional[float] = None
+    top_right_x: Optional[float] = None
+    top_right_y: Optional[float] = None
+    bottom_left_x: Optional[float] = None
+    bottom_left_y: Optional[float] = None
+    bottom_right_x: Optional[float] = None
+    bottom_right_y: Optional[float] = None
 
 
 class FarmCreate(FarmBase):

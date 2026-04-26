@@ -48,7 +48,22 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     """Create all tables. Safe to call on startup; no-op for existing tables."""
-    # Import models so they register with Base.metadata
     from app import db_models  # noqa: F401
+    from sqlalchemy import inspect, text
 
     Base.metadata.create_all(bind=engine)
+
+    # Add corner columns to existing farms table if missing (safe migration)
+    try:
+        inspector = inspect(engine)
+        existing = {c["name"] for c in inspector.get_columns("farms")}
+        corner_cols = [
+            "top_left_x", "top_left_y", "top_right_x", "top_right_y",
+            "bottom_left_x", "bottom_left_y", "bottom_right_x", "bottom_right_y",
+        ]
+        with engine.begin() as conn:
+            for col in corner_cols:
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE farms ADD COLUMN {col} FLOAT"))
+    except Exception:
+        pass

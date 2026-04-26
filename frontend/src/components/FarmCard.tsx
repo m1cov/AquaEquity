@@ -31,11 +31,13 @@ export function FarmCard({ farm, onDetails }: { farm: EnrichedFarm; onDetails?: 
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-semibold text-base leading-tight truncate">{farm.name}</h3>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
             <MapPin className="h-3 w-3" />
             <span>{farm.region}</span>
             <span>·</span>
             <span>{farm.size_ha} ha</span>
+            {farm.crop_name && (<><span>·</span><span>{farm.crop_name}</span></>)}
+            {farm.soil_type && (<><span>·</span><span>{farm.soil_type}</span></>)}
           </div>
         </div>
         <Badge variant="outline" className={sb.cls}>{sb.label}</Badge>

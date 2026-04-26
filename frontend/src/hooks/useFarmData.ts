@@ -18,6 +18,14 @@ export interface Farm {
   water_quota_liters: number;
   crop_name?: string;
   soil_type?: string;
+  top_left_x?: number | null;
+  top_left_y?: number | null;
+  top_right_x?: number | null;
+  top_right_y?: number | null;
+  bottom_left_x?: number | null;
+  bottom_left_y?: number | null;
+  bottom_right_x?: number | null;
+  bottom_right_y?: number | null;
 }
 
 export interface FarmReading {
