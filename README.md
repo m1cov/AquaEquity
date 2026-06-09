@@ -4,6 +4,34 @@ Smart irrigation dashboard for North Macedonia. React frontend + FastAPI backend
 with an Extended Kalman Filter for daily soil-water estimation, Sentinel-2 NDVI
 & moisture statistics, and Open-Meteo weather forecasts.
 
+## 💎 Idea
+
+Irrigation water across Southern Europe is a shared, finite resource — but it's allocated as if it weren't. Farmers irrigate on intuition or fixed schedules, water authorities have no real-time picture of usage, and aquifers drain while crops still hit moisture stress because water goes to the wrong field at the wrong time.
+
+**AquaEquity** is a precision irrigation and water-fairness platform. It uses an **Extended Kalman Filter** to continuously estimate soil moisture and crop water stress at the per-farm level, then produces three things:  
+1. Precise irrigation recommendations  
+2. Automatic stress alerts  
+3. A fairness layer that tracks usage against quotas across a region  
+
+The Kalman approach is the differentiator — instead of threshold rules, it reasons about uncertainty, so irrigation decisions stay conservative when satellite revisits stretch or forecasts diverge from reality.
+
+## 🛰️ EU Space Technologies
+
+AquaEquity is built on **Copernicus Sentinel-2**, accessed through the Copernicus Data Space Statistical API. We derive **NDVI** as a proxy for canopy development (feeding the crop coefficient and evapotranspiration model) and **NDMI/SWIR indices** as an indirect soil-moisture signal. These enter the EKF as measurement updates with tuned noise to reflect that they're inferred, not directly sensed.
+
+Between passes, the filter propagates state forward using a **soil-water balance** driven by weather data. That's the value-add: a single Sentinel-2 image is a snapshot, but coupled with a state estimator it becomes a continuously-updated picture of every field in the region — even on cloudy days and between revisits.
+
+## 🌊 EU Space for Water
+
+**Challenge #1: Securing equitable and efficient access to water**  
+
+AquaEquity addresses the "managing water resources" challenge on two levels:  
+
+- **Farm level:** Uncertainty-aware satellite-grounded recommendations replace schedule-based irrigation, with preliminary simulations suggesting meaningful reductions in applied water without yield loss.  
+- **Regional level:** Fairness analytics turn aggregate consumption into a transparent metric, giving authorities and cooperatives a basis for setting equitable quotas.  
+
+Protecting a shared resource means reducing total draw and distributing it fairly — AquaEquity addresses both in one system.
+
 ```
 aquafield/
 ├── frontend/   React + Vite + TypeScript + shadcn/ui (Tailwind)
